@@ -45,13 +45,14 @@ mpl.rcParams.update(pgf_with_latex)
 
 
 
-# def FS(x, De, R0):
-#     return De*((R0/x)**12-2*(R0/x)**6)
+def LJ(x, De, R0):
+    return De*((R0/x)**12-2*(R0/x)**6)
     
 def FS(c0,c1,c2,c3,c4,c5,theta):
     fs = c0*math.cos(theta)+c1*math.cos(theta)+c2*math.cos(theta)+c3*math.cos(theta)+c4*math.cos(theta)+c5*math.cos(theta)
-def ddx_FS(c0,c1,c2,c3,c4,c5,theta):
-    dd_fs = c0*math.sin(theta)+c1*math.sin(theta)+c2*math.sin(theta)+c3*math.sin(theta)+c4*math.sin(theta)+c5*math.sin(theta)
+    return fs
+def ddx_LJ(x,De,R0):
+    return De*(-12*(R0**12/x**13)+12*(R0**6/x**7))
 
 def biexp(x, a, b, c, d):
     return a*np.exp(-x/b)+c*np.exp(-x/d)
@@ -71,8 +72,7 @@ parser.add_argument("calcfolder")
 colorcycle = plt.rcParams['axes.prop_cycle'].by_key()['color']
 ev2Hartree = 1/27.2114
 J2hartree=4.35974e18
-angs2bohr = 1.88973
-angtorad = 1/math.pi() 
+angs2bohr = 1.88973 
 displ=0.#25
 M=2
 N=4
@@ -84,28 +84,17 @@ E_off='nowinborhs_oldscan_HJ_Nc{}_mod'.format(N_coarse)
 # ------------------------------
 raw_scan=np.loadtxt('scan_pes.dat')
 #raw_scan=np.loadtxt('fullscan_corrected_swap.dat')
-
-raw_scan_t=np.transpose(raw_scan)
-ev_scan = np.copy(raw_scan_t)
-ev_scan[1]= ev_scan[1]/ev2Hartree
-vg0_min = np.min(ev_scan[1])
-ev_scan[1]-= vg0_min 
-ev_scan[2]+= ev_scan[1]
-ev_scan[3]+= ev_scan[1]
-ev_scan[0][21:]-=360
-
-
-# raw_scan[:,1:]-=raw_scan[-1,1]
-scan=ev_scan.copy()
-points=scan[0]*angtorad
+raw_scan[:,1:]-=raw_scan[-1,1]
+scan=raw_scan.copy()
+points=scan[:,0]*angs2bohr
 #points_mod=points-displ
-# scan[:,2]=(raw_scan[:,2]+raw_scan[:,3])/2+(raw_scan[:,2]-raw_scan[:,3])/8.5
-# scan[:,3]=(raw_scan[:,2]+raw_scan[:,3])/2-(raw_scan[:,2]-raw_scan[:,3])/8.5
+scan[:,2]=(raw_scan[:,2]+raw_scan[:,3])/2+(raw_scan[:,2]-raw_scan[:,3])/8.5
+scan[:,3]=(raw_scan[:,2]+raw_scan[:,3])/2-(raw_scan[:,2]-raw_scan[:,3])/8.5
 print(scan)
-beta=np.zeros((scan.shape[1]))
-diag=np.zeros((scan.shape[1]))
-vg=np.zeros((scan.shape[1]))
-ve=np.zeros((scan.shape[1]))
+beta=np.zeros((scan.shape[0]))
+diag=np.zeros((scan.shape[0]))
+vg=np.zeros((scan.shape[0]))
+ve=np.zeros((scan.shape[0]))
 
 # Mass-freq, necessary for MFW coord representations
 # --------------------------------------------------
@@ -117,17 +106,17 @@ mass_OT_chain=mass_OT*N_coarse+2*1836
 mass_inter_coarse=mass_OT_chain/2
 
 
-# Fit the scanned potentials to a FS form:
+# Fit the scanned potentials to a LJ form:
 # ----------------------------------------
-FS_lambd0, pcov_lambd0 = curve_fit(FS, points[1:],  )
-np.savetxt('lambda0_fit_Eoff{}.dat'.format(E_off),FS_lambd0, header=' # Lennard-Jones form: D*((-R0/R)^6-(R0/R)**12) \n D    R0 ',
-           footer='# freq={}'.format(np.sqrt((FS_lambd0[0]*2*(6/FS_lambd0[1])**2)/mass_inter)))
-FS_lambd1, pcov_lambd1 = curve_fit(FS, points[1:], scan[1:,2]-scan[-1,2])
-np.savetxt('lambda1_fit_Eoff{}.dat'.format(E_off),FS_lambd1, header=' # Lennard-Jones form: D*((-R0/R)^6-(R0/R)**12) \n D    R0 ',
-           footer='# freq={}'.format(np.sqrt((FS_lambd1[0]*2*(6/FS_lambd1[1])**2)/mass_inter)))
-FS_lambd2, pcov_lambd2 = curve_fit(FS, points[1:], scan[1:,3]-scan[-1,3])
-np.savetxt('lambda2_fit_Eoff{}.dat'.format(E_off),FS_lambd2, header=' # Lennard-Jones form: D*((-R0/R)^6-(R0/R)**12) \n D    R0 ',
-           footer='# freq={}'.format(np.sqrt((FS_lambd2[0]*2*(6/FS_lambd2[1])**2)/mass_inter)))
+LJ_lambd0, pcov_lambd0 = curve_fit(LJ, points[1:], scan[1:,1])
+np.savetxt('lambda0_fit_Eoff{}.dat'.format(E_off),LJ_lambd0, header=' # Lennard-Jones form: D*((-R0/R)^6-(R0/R)**12) \n D    R0 ',
+           footer='# freq={}'.format(np.sqrt((LJ_lambd0[0]*2*(6/LJ_lambd0[1])**2)/mass_inter)))
+LJ_lambd1, pcov_lambd1 = curve_fit(LJ, points[1:], scan[1:,2]-scan[-1,2])
+np.savetxt('lambda1_fit_Eoff{}.dat'.format(E_off),LJ_lambd1, header=' # Lennard-Jones form: D*((-R0/R)^6-(R0/R)**12) \n D    R0 ',
+           footer='# freq={}'.format(np.sqrt((LJ_lambd1[0]*2*(6/LJ_lambd1[1])**2)/mass_inter)))
+LJ_lambd2, pcov_lambd2 = curve_fit(LJ, points[1:], scan[1:,3]-scan[-1,3])
+np.savetxt('lambda2_fit_Eoff{}.dat'.format(E_off),LJ_lambd2, header=' # Lennard-Jones form: D*((-R0/R)^6-(R0/R)**12) \n D    R0 ',
+           footer='# freq={}'.format(np.sqrt((LJ_lambd2[0]*2*(6/LJ_lambd2[1])**2)/mass_inter)))
 
 
 # Obtain the point-wise dependent
@@ -137,9 +126,9 @@ dinf=scan[-1,2]#-(scan[-1,2]-scan[-1,3])/(np.cos(2*np.pi/3)-np.cos(1*np.pi/3))*n
 evals_reconstr=np.zeros((points.size, 9))
 for i, point in enumerate(points):
     #beta[i]=(scan[i,2]-scan[i,3])/2/(np.cos(2*np.pi/3)-np.cos(1*np.pi/3))
-    beta[i]=(FS(point-displ, *FS_lambd1)-FS(point-displ,*FS_lambd2))/2/(np.cos(2*np.pi/3)-np.cos(1*np.pi/3))
+    beta[i]=(LJ(point-displ, *LJ_lambd1)-LJ(point-displ,*LJ_lambd2))/2/(np.cos(2*np.pi/3)-np.cos(1*np.pi/3))
     #diag[i]=scan[i,2]-(scan[i,2]-scan[i,3])/(np.cos(2*np.pi/3)-np.cos(1*np.pi/3))*np.cos(2*np.pi/3)-dinf
-    diag[i]=FS(point-displ, *FS_lambd1)+scan[-1,2]-(FS(point-displ, *FS_lambd1)-FS(point-displ, *FS_lambd2))/(np.cos(2*np.pi/3)-np.cos(1*np.pi/3))*np.cos(2*np.pi/3)-dinf
+    diag[i]=LJ(point-displ, *LJ_lambd1)+scan[-1,2]-(LJ(point-displ, *LJ_lambd1)-LJ(point-displ, *LJ_lambd2))/(np.cos(2*np.pi/3)-np.cos(1*np.pi/3))*np.cos(2*np.pi/3)-dinf
     #diag[i]=0.5*((scan[i,2]+scan[i,3])
     #             -((np.cos(2*np.pi/3)+np.cos(1*np.pi/3))/(np.cos(2*np.pi/3)-np.cos(1*np.pi/3)))
     #             *(scan[i,2]-scan[i,3])-2*scan[-1,1])
@@ -156,31 +145,31 @@ for i, point in enumerate(points):
     evals_reconstr[i,:]=np.linalg.eigvalsh(mat)
     #print(evals[0], evals[1])
 np.savetxt('Recontst_evals.txt', np.column_stack((points.T/angs2bohr,evals_reconstr)), delimiter=' & ', fmt='%2.2e', newline=' \\\\\n')
-FSreconstr=[]
+LJreconstr=[]
 for i in range(9):
-    FSfit, pcov=curve_fit(FS, points[1:], evals_reconstr[1:,i]-evals_reconstr[-1,i])
-    FSreconstr.append(FSfit)
-print(FSreconstr)
+    LJfit, pcov=curve_fit(LJ, points[1:], evals_reconstr[1:,i]-evals_reconstr[-1,i])
+    LJreconstr.append(LJfit)
+print(LJreconstr)
 
 # Fit diag and beta to a Lennard-jones function
 # ---------------------------------------------
-FS_diag, pcovdiag = curve_fit(FS, points[1:], diag[1:])
+LJ_diag, pcovdiag = curve_fit(LJ, points[1:], diag[1:])
 with open('dinf.dat','w') as out:
     for i,point in enumerate(points):
-        out.write('{}  {} {}\n'.format(point, diag[i], FS(point, *FS_diag)))
-FS_G, pcovG = curve_fit(FS, points[1:], vg[1:])
-#print(FS_G)
-FS_E, pcovE = curve_fit(FS, points[1:], ve[1:])
-#print(FS_E)
+        out.write('{}  {} {}\n'.format(point, diag[i], LJ(point, *LJ_diag)))
+LJ_G, pcovG = curve_fit(LJ, points[1:], vg[1:])
+#print(LJ_G)
+LJ_E, pcovE = curve_fit(LJ, points[1:], ve[1:])
+#print(LJ_E)
 beta_coef, pcov_beta=curve_fit(biexp, points[1:-1], beta[1:-1])
 #print(beta_coef)
-#Rmin_gs=pow(2,1/6)*FS_G[1]
-beta_mings=biexp(FS_G[1],*beta_coef)/ev2Hartree
+#Rmin_gs=pow(2,1/6)*LJ_G[1]
+beta_mings=biexp(LJ_G[1],*beta_coef)/ev2Hartree
 
-k_inter_gs=FS_G[0]*2*(6/FS_G[1])**2
+k_inter_gs=LJ_G[0]*2*(6/LJ_G[1])**2
 freq_inter_gs=np.sqrt(k_inter_gs/mass_inter)
 
-k_inter_es=FS_E[0]*2*(6/FS_E[1])**2
+k_inter_es=LJ_E[0]*2*(6/LJ_E[1])**2
 freq_inter_es=np.sqrt(k_inter_es/mass_inter)
 
 # Plotting
@@ -196,13 +185,13 @@ ax = fig.add_subplot(111)
 finepoints=np.linspace(1,20, 150)
 color=next(ax._get_lines.prop_cycler)['color']
 ax.plot(points, scan[:,1]/ev2Hartree,'x',color=color)
-ax.plot(finepoints, FS(finepoints,*FS_lambd0)/ev2Hartree, color=color, label=r'$\lambda_0$')
+ax.plot(finepoints, LJ(finepoints,*LJ_lambd0)/ev2Hartree, color=color, label=r'$\lambda_0$')
 color=next(ax._get_lines.prop_cycler)['color']
 ax.plot(points, scan[:,2]/ev2Hartree,'x',color=color)
-ax.plot(finepoints, (FS(finepoints,*FS_lambd1)+scan[-1,2])/ev2Hartree,color=color, label=r'$\lambda_1$')
+ax.plot(finepoints, (LJ(finepoints,*LJ_lambd1)+scan[-1,2])/ev2Hartree,color=color, label=r'$\lambda_1$')
 color=next(ax._get_lines.prop_cycler)['color']
 ax.plot(points, scan[:,3]/ev2Hartree,'x', color=color)
-ax.plot(finepoints, (FS(finepoints,*FS_lambd2)+scan[-1,2])/ev2Hartree,color=color, label=r'$\lambda_2$')
+ax.plot(finepoints, (LJ(finepoints,*LJ_lambd2)+scan[-1,2])/ev2Hartree,color=color, label=r'$\lambda_2$')
 
 ax.set_xlim(1, 20)
 ax.set_ylim(-1.5, 15)
@@ -225,15 +214,15 @@ ax = fig.add_subplot(111)
 #ax.plot(points, (scan[:,3]-scan[-1,1])/ev2Hartree,'x-')
 color=next(ax._get_lines.prop_cycler)['color']
 ax.plot(points, vg/ev2Hartree,'x',color=color)
-ax.plot(finepoints, FS(finepoints,*FS_G)/ev2Hartree, color=color, label=r'$v_g$')
+ax.plot(finepoints, LJ(finepoints,*LJ_G)/ev2Hartree, color=color, label=r'$v_g$')
 color=next(ax._get_lines.prop_cycler)['color']
 ax.plot(points, ve/ev2Hartree,'x',color=color)
-ax.plot(finepoints, FS(finepoints,*FS_E)/ev2Hartree,color=color, label=r'$v_e$')
+ax.plot(finepoints, LJ(finepoints,*LJ_E)/ev2Hartree,color=color, label=r'$v_e$')
 color=next(ax._get_lines.prop_cycler)['color']
 ax.plot(points, beta/ev2Hartree,'x', color=color)
 ax.plot(finepoints, biexp(finepoints,*beta_coef)/ev2Hartree,color=color, label=r'$\beta$')
-#ax.scatter(Rmin_gs, FS(Rmin_gs,*FS_G)/ev2Hartree, color='red', marker='x')
-ax.scatter(FS_G[1], FS(FS_G[1],*FS_G)/ev2Hartree, color='red', marker='o')
+#ax.scatter(Rmin_gs, LJ(Rmin_gs,*LJ_G)/ev2Hartree, color='red', marker='x')
+ax.scatter(LJ_G[1], LJ(LJ_G[1],*LJ_G)/ev2Hartree, color='red', marker='o')
 
 ax.set_xlim(0, 20)
 ax.set_ylim(-1.5, 1)
@@ -252,48 +241,48 @@ axmfw = figmfw.add_subplot(111)
 # Barrier harmonic potential
 # --------------------------
 h_barrier_R=50
-h_barrier_a=ddx_FS(h_barrier_R, FS_G[0], FS_G[1]*np.sqrt(mass_inter*freq_inter_gs))/2/h_barrier_R
-h_barrier_b=FS(h_barrier_R, FS_G[0], FS_G[1]*np.sqrt(mass_inter*freq_inter_gs))-h_barrier_a*h_barrier_R**2
-e_barrier_b=FS(h_barrier_R, FS_G[0], FS_G[1]*np.sqrt(mass_inter*freq_inter_gs))/ddx_FS(h_barrier_R, FS_G[0], FS_G[1]*np.sqrt(mass_inter*freq_inter_gs))
+h_barrier_a=ddx_LJ(h_barrier_R, LJ_G[0], LJ_G[1]*np.sqrt(mass_inter*freq_inter_gs))/2/h_barrier_R
+h_barrier_b=LJ(h_barrier_R, LJ_G[0], LJ_G[1]*np.sqrt(mass_inter*freq_inter_gs))-h_barrier_a*h_barrier_R**2
+e_barrier_b=LJ(h_barrier_R, LJ_G[0], LJ_G[1]*np.sqrt(mass_inter*freq_inter_gs))/ddx_LJ(h_barrier_R, LJ_G[0], LJ_G[1]*np.sqrt(mass_inter*freq_inter_gs))
 print(e_barrier_b)
-e_barrier_a=ddx_FS(h_barrier_R, FS_G[0], FS_G[1]*np.sqrt(mass_inter*freq_inter_gs))*e_barrier_b*np.exp(-h_barrier_R/e_barrier_b)
+e_barrier_a=ddx_LJ(h_barrier_R, LJ_G[0], LJ_G[1]*np.sqrt(mass_inter*freq_inter_gs))*e_barrier_b*np.exp(-h_barrier_R/e_barrier_b)
 print(e_barrier_a)
 mfwfinepoints=finepoints/np.sqrt(mass_inter*freq_inter_gs)
 mfwfinepoints=np.linspace(1,150,200)
 
 #barrier_coef, pcov_barrier=curve_fit(biexp, mfwfinepoints[55:],-e_barrier_a*np.exp((2*h_barrier_R-mfwfinepoints[55:])/e_barrier_b)
-#                                                          +2*FS(h_barrier_R,FS_G[0], FS_G[1]*np.sqrt(mass_inter*freq_inter_gs)),
+#                                                          +2*LJ(h_barrier_R,LJ_G[0], LJ_G[1]*np.sqrt(mass_inter*freq_inter_gs)),
 #                                     p0=(1,-1,1,-1))
 
 color=next(axmfw._get_lines.prop_cycler)['color']
 axmfw.plot(points*np.sqrt(mass_inter*freq_inter_gs), vg/ev2Hartree,'x',color=color)
-axmfw.plot(mfwfinepoints, FS(mfwfinepoints,FS_G[0], FS_G[1]*np.sqrt(mass_inter*freq_inter_gs))/ev2Hartree, color=color, label=r'$v_g$')
+axmfw.plot(mfwfinepoints, LJ(mfwfinepoints,LJ_G[0], LJ_G[1]*np.sqrt(mass_inter*freq_inter_gs))/ev2Hartree, color=color, label=r'$v_g$')
 ##axmfw.plot(mfwfinepoints, (h_barrier_a*mfwfinepoints**2+h_barrier_b)/ev2Hartree, color='red', linestyle=':')
 ###axmfw.plot(mfwfinepoints, (e_barrier_a*np.exp(mfwfinepoints/e_barrier_b))/ev2Hartree, color='black',linestyle=':')
 ##axmfw.plot(mfwfinepoints, (-e_barrier_a*np.exp((2*h_barrier_R-mfwfinepoints)/e_barrier_b)
-##                            +2*FS(h_barrier_R,FS_G[0], FS_G[1]*np.sqrt(mass_inter*freq_inter_gs)))/ev2Hartree, color='black',linestyle=':')
+##                            +2*LJ(h_barrier_R,LJ_G[0], LJ_G[1]*np.sqrt(mass_inter*freq_inter_gs)))/ev2Hartree, color='black',linestyle=':')
 ##axmfw.plot(mfwfinepoints, biexp(mfwfinepoints,barrier_coef[0], barrier_coef[1], barrier_coef[2], barrier_coef[3])/ev2Hartree, color='black',linestyle=':')
 ###axmfw.plot(mfwfinepoints, mod_exp(mfwfinepoints,barrier_coef[0], barrier_coef[1]*np.sqrt(mass_inter*freq_inter_gs), barrier_coef[2], barrier_coef[3]*np.sqrt(mass_inter*freq_inter_gs))/ev2Hartree, color='black',linestyle=':')
-###axmfw.plot(mfwfinepoints, (FS(mfwfinepoints,FS_G[0], FS_G[1]*np.sqrt(mass_inter*freq_inter_gs))
-###    +FS(2*FS_G[1]*np.sqrt(mass_inter*freq_inter_gs)-mfwfinepoints,FS_G[0], FS_G[1]*np.sqrt(mass_inter*freq_inter_gs)))/2/ev2Hartree, color=color, label=r'$v_g$', linestyle=':')
-#axmfw.plot(mfwfinepoints, (FS_G[0]*2*(6/(FS_G[1]*np.sqrt(mass_inter*freq_inter_gs)))**2)*(mfwfinepoints-FS_G[1]*np.sqrt(mass_inter*freq_inter_gs))**2/ev2Hartree-FS_G[0]/ev2Hartree, color='red', label=r'$v_g$')
+###axmfw.plot(mfwfinepoints, (LJ(mfwfinepoints,LJ_G[0], LJ_G[1]*np.sqrt(mass_inter*freq_inter_gs))
+###    +LJ(2*LJ_G[1]*np.sqrt(mass_inter*freq_inter_gs)-mfwfinepoints,LJ_G[0], LJ_G[1]*np.sqrt(mass_inter*freq_inter_gs)))/2/ev2Hartree, color=color, label=r'$v_g$', linestyle=':')
+#axmfw.plot(mfwfinepoints, (LJ_G[0]*2*(6/(LJ_G[1]*np.sqrt(mass_inter*freq_inter_gs)))**2)*(mfwfinepoints-LJ_G[1]*np.sqrt(mass_inter*freq_inter_gs))**2/ev2Hartree-LJ_G[0]/ev2Hartree, color='red', label=r'$v_g$')
 color=next(axmfw._get_lines.prop_cycler)['color']
 axmfw.plot(points*np.sqrt(mass_inter*freq_inter_gs), ve/ev2Hartree,'x',color=color)
-axmfw.plot(mfwfinepoints, FS(mfwfinepoints,FS_E[0], FS_E[1]*np.sqrt(mass_inter*freq_inter_gs))/ev2Hartree,color=color, label=r'$v_e$')
-#axmfw.plot(mfwfinepoints, (FS(mfwfinepoints,FS_E[0], FS_E[1]*np.sqrt(mass_inter*freq_inter_gs))
-#    +FS(2*FS_G[1]*np.sqrt(mass_inter*freq_inter_gs)-mfwfinepoints,FS_E[0], FS_E[1]*np.sqrt(mass_inter*freq_inter_gs)))/2/ev2Hartree, color=color, label=r'$v_e$', linestyle=':')
+axmfw.plot(mfwfinepoints, LJ(mfwfinepoints,LJ_E[0], LJ_E[1]*np.sqrt(mass_inter*freq_inter_gs))/ev2Hartree,color=color, label=r'$v_e$')
+#axmfw.plot(mfwfinepoints, (LJ(mfwfinepoints,LJ_E[0], LJ_E[1]*np.sqrt(mass_inter*freq_inter_gs))
+#    +LJ(2*LJ_G[1]*np.sqrt(mass_inter*freq_inter_gs)-mfwfinepoints,LJ_E[0], LJ_E[1]*np.sqrt(mass_inter*freq_inter_gs)))/2/ev2Hartree, color=color, label=r'$v_e$', linestyle=':')
 color=next(axmfw._get_lines.prop_cycler)['color']
 #axmfw.plot(points/np.sqrt(mass_inter*freq_inter_gs), beta/ev2Hartree,'o', color=color)
 axmfw.plot(mfwfinepoints, biexp(mfwfinepoints,beta_coef[0], beta_coef[1]*np.sqrt(mass_inter*freq_inter_gs), beta_coef[2], beta_coef[3]*np.sqrt(mass_inter*freq_inter_gs))/ev2Hartree,color=color, label=r'$\beta$')
 #axmfw.plot(mfwfinepoints, (biexp(mfwfinepoints,
 #                                beta_coef[0], beta_coef[1]*np.sqrt(mass_inter*freq_inter_gs),
 #                                beta[2], beta[3]*np.sqrt(mass_inter*freq_inter_gs))
-#                           +biexp(2*FS_G[1]*np.sqrt(mass_inter*freq_inter_gs)-mfwfinepoints,
+#                           +biexp(2*LJ_G[1]*np.sqrt(mass_inter*freq_inter_gs)-mfwfinepoints,
 #                                beta_coef[0], beta_coef[1]*np.sqrt(mass_inter*freq_inter_gs),
 #                                beta[2], beta[3]*np.sqrt(mass_inter*freq_inter_gs))
 #                           )/2/ev2Hartree,color=color, label=r'$\beta$', linestyle=':')
-#ax.scatter(Rmin_gs, FS(Rmin_gs,*FS_G)/ev2Hartree, color='red', marker='x')
-#axmfw.scatter(FS_G[1], FS(FS_G[1],*FS_G)/ev2Hartree, color='red', marker='o')
+#ax.scatter(Rmin_gs, LJ(Rmin_gs,*LJ_G)/ev2Hartree, color='red', marker='x')
+#axmfw.scatter(LJ_G[1], LJ(LJ_G[1],*LJ_G)/ev2Hartree, color='red', marker='o')
 
 axmfw.set_xlim(30, 150)
 axmfw.set_ylim(-1.5, 1)
@@ -309,12 +298,12 @@ figmfw.savefig('Hagg_anmap_mfw_Eoff{}.pdf'.format(E_off))
 
 
 np.savetxt('beta_fit_Eoff{}.dat'.format(E_off),beta_coef, header=' # Exponential form: a*exp(-x/b)+c*(-x/d) \n a    b    c   d')
-np.savetxt('vg_fit_Eoff{}.dat'.format(E_off),FS_G, header=' # Lennard-Jones form: D*((-R0/R)^6-(R0/R)**12) \n D    R0 ',
-           footer='# freq={}'.format(np.sqrt((FS_G[0]*2*(6/FS_G[1])**2)/mass_inter)))
+np.savetxt('vg_fit_Eoff{}.dat'.format(E_off),LJ_G, header=' # Lennard-Jones form: D*((-R0/R)^6-(R0/R)**12) \n D    R0 ',
+           footer='# freq={}'.format(np.sqrt((LJ_G[0]*2*(6/LJ_G[1])**2)/mass_inter)))
 #np.savetxt('vg_fit_expcorr_Eoff{}.dat'.format(E_off),barrier_coef, header=' # Exponential form: a*exp(-x/b)+c*(-x/d) \n a    b    c   d')
-np.savetxt('ve_fit_Eoff{}.dat'.format(E_off),FS_E, header=' # Lennard-Jones form: D*((-R0/R)^6-(R0/R)**12) \n D    R0 ',
-           footer='# freq={}'.format(np.sqrt((FS_E[0]*2*(6/FS_E[1])**2)/mass_inter)))
-np.savetxt('diag_fit_Eoff{}.dat'.format(E_off),FS_diag, header=' # Lennard-Jones form: D*((-R0/R)^6-(R0/R)**12) \n D    R0 ')
+np.savetxt('ve_fit_Eoff{}.dat'.format(E_off),LJ_E, header=' # Lennard-Jones form: D*((-R0/R)^6-(R0/R)**12) \n D    R0 ',
+           footer='# freq={}'.format(np.sqrt((LJ_E[0]*2*(6/LJ_E[1])**2)/mass_inter)))
+np.savetxt('diag_fit_Eoff{}.dat'.format(E_off),LJ_diag, header=' # Lennard-Jones form: D*((-R0/R)^6-(R0/R)**12) \n D    R0 ')
 
 with open('beta_fit_Eoff{}.dat'.format(E_off),'a') as out:
     out.write('Value of beta at GS equilibrium position: {} eV'.format(beta_mings))
@@ -383,27 +372,27 @@ for i, point in enumerate(points):
     vg_coarse[i]=N_coarse*vg[i]
     ve_coarse[i]=diag[i]-(M-1)*vg_coarse[i]
 
-FS_G_coarse, pcovG = curve_fit(FS, points[1:], vg_coarse[1:])
-np.savetxt('vgCG_N{}_fit_Eoff{}.dat'.format(N_coarse,E_off),FS_G_coarse, header=' # Lennard-Jones form: D*((-R0/R)^6-(R0/R)**12) \n D    R0 ',
-           footer='# freq={}'.format(np.sqrt((FS_G_coarse[0]*2*(6/FS_G_coarse[1])**2)/mass_inter_coarse)))
-freq_gs_coarse=np.sqrt((FS_G_coarse[0]*2*(6/FS_G_coarse[1])**2)/mass_inter_coarse)
+LJ_G_coarse, pcovG = curve_fit(LJ, points[1:], vg_coarse[1:])
+np.savetxt('vgCG_N{}_fit_Eoff{}.dat'.format(N_coarse,E_off),LJ_G_coarse, header=' # Lennard-Jones form: D*((-R0/R)^6-(R0/R)**12) \n D    R0 ',
+           footer='# freq={}'.format(np.sqrt((LJ_G_coarse[0]*2*(6/LJ_G_coarse[1])**2)/mass_inter_coarse)))
+freq_gs_coarse=np.sqrt((LJ_G_coarse[0]*2*(6/LJ_G_coarse[1])**2)/mass_inter_coarse)
 with open('vgcoarse_N{}_mfw.dat'.format(N_coarse),'w') as out:
     for i,point in enumerate(points):
-        out.write('{}  {}\n'.format(point*np.sqrt(mass_inter_coarse*freq_gs_coarse), FS(point*np.sqrt(mass_inter_coarse*freq_gs_coarse),FS_G_coarse[0], FS_G_coarse[1]*np.sqrt(mass_inter_coarse*freq_gs_coarse))))
+        out.write('{}  {}\n'.format(point*np.sqrt(mass_inter_coarse*freq_gs_coarse), LJ(point*np.sqrt(mass_inter_coarse*freq_gs_coarse),LJ_G_coarse[0], LJ_G_coarse[1]*np.sqrt(mass_inter_coarse*freq_gs_coarse))))
 with open('vgcoarse_N{}.dat'.format(N_coarse),'w') as out:
     for i,point in enumerate(finepoints):
-        out.write('{}  {} \n'.format(point, FS(point, *FS_G_coarse)))
+        out.write('{}  {} \n'.format(point, LJ(point, *LJ_G_coarse)))
 #mask=[False if i==5 or i==3 or i==1 or i==0 else True for i in range(ve_coarse.size)]
 mask=[False if i==1 or i==1 or i==0 else True for i in range(ve_coarse.size)]
 #mask=[False if i==7 or i==8 or i==2 or i==3 or i==5 or i==4 or i==6 or i==9 or i==10 or i==11 else True for i in range(ve_coarse.size)]
 #mask=[False if i in range(4,12) or i==0 else True for i in range(ve_coarse.size)]
 #print(mask)
-FS_E_coarse, pcovG = curve_fit(FS, points[mask], ve_coarse[mask])
+LJ_E_coarse, pcovG = curve_fit(LJ, points[mask], ve_coarse[mask])
 with open('vecoarse_N{}.dat'.format(N_coarse),'w') as out:
     for i,point in enumerate(finepoints):
-        out.write('{}  {} \n'.format(point, FS(point,*FS_E_coarse)))
-np.savetxt('veCG_N{}_fit_Eoff{}.dat'.format(N_coarse,E_off),FS_E_coarse, header=' # Lennard-Jones form: D*((-R0/R)^6-(R0/R)**12) \n D    R0 ',
-           footer='# freq={}'.format(np.sqrt((FS_G[0]*2*(6/FS_E_coarse[1])**2)/mass_inter_coarse)))
+        out.write('{}  {} \n'.format(point, LJ(point,*LJ_E_coarse)))
+np.savetxt('veCG_N{}_fit_Eoff{}.dat'.format(N_coarse,E_off),LJ_E_coarse, header=' # Lennard-Jones form: D*((-R0/R)^6-(R0/R)**12) \n D    R0 ',
+           footer='# freq={}'.format(np.sqrt((LJ_G[0]*2*(6/LJ_E_coarse[1])**2)/mass_inter_coarse)))
 
 with open('beta.dat','w') as out:
     for i,point in enumerate(finepoints):
@@ -450,10 +439,10 @@ figwidth /= 100
 figheight /=100
 
 
-print('DeGm=',FS_G[0]/ev2Hartree)
-print('DeEm=',FS_E[0]/ev2Hartree)
-print('sigmaGm=',FS_G[1]/angs2bohr)
-print('simgaEm=',FS_E[1]/angs2bohr)
+print('DeGm=',LJ_G[0]/ev2Hartree)
+print('DeEm=',LJ_E[0]/ev2Hartree)
+print('sigmaGm=',LJ_G[1]/angs2bohr)
+print('simgaEm=',LJ_E[1]/angs2bohr)
 print('betaa=',beta_coef[0]/ev2Hartree)
 print('betab=',beta_coef[1]/angs2bohr)
 print('betac=',beta_coef[2]/ev2Hartree)
@@ -462,24 +451,24 @@ print('betad=',beta_coef[3]/angs2bohr)
 print('freqinterGm=',freq_inter_gs/ev2Hartree)
 print('freqinterEm=',freq_inter_es/ev2Hartree)
 
-k_inter_ol_gs=FS_G_coarse[0]*2*(6/FS_G_coarse[1])**2
+k_inter_ol_gs=LJ_G_coarse[0]*2*(6/LJ_G_coarse[1])**2
 freq_inter_gs_olig=np.sqrt(k_inter_ol_gs/mass_inter)/ev2Hartree
 print('freqinterGc=',freq_inter_gs_olig)
-k_inter_ol_es=FS_E_coarse[0]*2*(6/FS_E_coarse[1])**2
+k_inter_ol_es=LJ_E_coarse[0]*2*(6/LJ_E_coarse[1])**2
 freq_inter_es_olig=np.sqrt(k_inter_ol_es/mass_inter)/ev2Hartree
 print('freqinterEc=',freq_inter_es_olig)
 
-print('DeGc=',FS_G_coarse[0]/ev2Hartree)
-print('DeEc=',FS_E_coarse[0]/ev2Hartree)
-print('simgaGc=',FS_G_coarse[1]/angs2bohr)
-print('sigmaEc=',FS_E_coarse[1]/angs2bohr)
+print('DeGc=',LJ_G_coarse[0]/ev2Hartree)
+print('DeEc=',LJ_E_coarse[0]/ev2Hartree)
+print('simgaGc=',LJ_G_coarse[1]/angs2bohr)
+print('sigmaEc=',LJ_E_coarse[1]/angs2bohr)
 
-#FS_lambd0[0]/=J2hartree
-#FS_lambd1[0]/=J2hartree
-#FS_lambd2[0]/=J2hartree
-#FS_lambd0[1]/=angs2bohr/1e10
-#FS_lambd1[1]/=angs2bohr/1e10
-#FS_lambd2[1]/=angs2bohr/1e10
+#LJ_lambd0[0]/=J2hartree
+#LJ_lambd1[0]/=J2hartree
+#LJ_lambd2[0]/=J2hartree
+#LJ_lambd0[1]/=angs2bohr/1e10
+#LJ_lambd1[1]/=angs2bohr/1e10
+#LJ_lambd2[1]/=angs2bohr/1e10
 
 finepoints=np.linspace(1,20, 150)#/angs2bohr*1e-10
 
@@ -489,13 +478,13 @@ ax_radia = fig_paper.add_axes([lm+panelWidth+legendPad+legendWidth+vertSpacer, b
 ax_monom = fig_paper.add_axes([lm, bm+(numPanels-2)*(panelHeight+spacer)+bigSpacer, panelWidth, panelHeight])
 ax_oligo = fig_paper.add_axes([lm+panelWidth+legendPad+legendWidth+vertSpacer, bm+(numPanels-2)*(panelHeight+spacer)+bigSpacer, panelWidth, panelHeight])
 
-ax_adiab.plot(finepoints/angs2bohr, FS(finepoints, *FS_lambd0)/ev2Hartree, color='k', label=r'$S_0^{(2)}$')
+ax_adiab.plot(finepoints/angs2bohr, LJ(finepoints, *LJ_lambd0)/ev2Hartree, color='k', label=r'$S_0^{(2)}$')
 #ax_adiab.scatter(points[1:]/angs2bohr, scan[1:,1]/ev2Hartree, color=colorcycle[0], marker='o')
 #ax_adiab.scatter(points[1:]/angs2bohr, evals_reconstr[1:,0]/ev2Hartree, color=colorcycle[0], marker='o')
 #ax_adiab.scatter(points[1:]/angs2bohr, evals_reconstr[1:,8]/ev2Hartree, color=colorcycle[0], marker='o')
-ax_adiab.plot(finepoints/angs2bohr, (FS(finepoints, *FS_lambd1)+scan[-1,2])/ev2Hartree, color=colorcycle[3], label=r'$S_1^{(2)}$')
+ax_adiab.plot(finepoints/angs2bohr, (LJ(finepoints, *LJ_lambd1)+scan[-1,2])/ev2Hartree, color=colorcycle[3], label=r'$S_1^{(2)}$')
 #ax_adiab.scatter(points[1:]/angs2bohr, scan[1:,2]/ev2Hartree, color=colorcycle[1], marker='o')
-ax_adiab.plot(finepoints/angs2bohr, (FS(finepoints, *FS_lambd2)+scan[-1,2])/ev2Hartree, color=colorcycle[4], label=r'$S_2^{(2)}$')
+ax_adiab.plot(finepoints/angs2bohr, (LJ(finepoints, *LJ_lambd2)+scan[-1,2])/ev2Hartree, color=colorcycle[4], label=r'$S_2^{(2)}$')
 #ax_adiab.scatter(points[1:]/angs2bohr, scan[1:,3]/ev2Hartree, color=colorcycle[2], marker='o')
 
 ax_adiab.set_xlim(5/angs2bohr,14/angs2bohr)
@@ -513,7 +502,7 @@ for i in range(9):
         linest='--'
     if i==8: linest=':'
     linecolor=colorcycle[index+2]
-    ax_radia.plot(finepoints/angs2bohr, FS(finepoints, *FSreconstr[i])/ev2Hartree+evals_reconstr[-1,i]/ev2Hartree, label=r'$S_{}^{{(9)}}$'.format(i+1), color=linecolor, linestyle=linest)
+    ax_radia.plot(finepoints/angs2bohr, LJ(finepoints, *LJreconstr[i])/ev2Hartree+evals_reconstr[-1,i]/ev2Hartree, label=r'$S_{}^{{(9)}}$'.format(i+1), color=linecolor, linestyle=linest)
     #ax_radia.scatter(points[1:]/angs2bohr, evals_reconstr[1:,i]/ev2Hartree, marker='o')
     index+=1
 ax_radia.set_xlim(5/angs2bohr,14/angs2bohr)
@@ -524,9 +513,9 @@ ax_radia.legend(loc=0, ncol=1, fontsize=14)
 ax_radia.set_xlabel(r'$R_{\gamma\!,\!\gamma\!+\!\mathregular{1}}$ / $\AA$')
 ax_radia.set_ylabel(r'E / eV')
 
-ax_monom.plot(finepoints/angs2bohr, FS(finepoints, *FS_G)/ev2Hartree, color=colorcycle[0], label=r'$v^{HJ}_G$')
+ax_monom.plot(finepoints/angs2bohr, LJ(finepoints, *LJ_G)/ev2Hartree, color=colorcycle[0], label=r'$v^{HJ}_G$')
 #ax_monom.scatter(points[1:]/angs2bohr, vg[1:]/ev2Hartree, color=colorcycle[3], marker='o')
-ax_monom.plot(finepoints/angs2bohr, FS(finepoints, *FS_E)/ev2Hartree, color=colorcycle[1], label=r'$v^{HJ}_E$')
+ax_monom.plot(finepoints/angs2bohr, LJ(finepoints, *LJ_E)/ev2Hartree, color=colorcycle[1], label=r'$v^{HJ}_E$')
 #ax_monom.scatter(points[1:]/angs2bohr, ve[1:]/ev2Hartree, color=colorcycle[4], marker='o')
 ax_monom.plot(finepoints/angs2bohr, biexp(finepoints, *beta_coef)/ev2Hartree, color=colorcycle[2], label=r'$\beta$')
 #ax_monom.scatter(points[1:]/angs2bohr, beta[1:]/ev2Hartree, color=colorcycle[5], marker='o')
@@ -539,9 +528,9 @@ ax_monom.set_xlabel(r'$R_{\gamma\!,\!\gamma\!+\!\mathregular{1}}$ / $\AA$')
 ax_monom.set_ylabel(r'E / eV')
 ax_monom.legend(loc=0)
 
-ax_oligo.plot(finepoints/angs2bohr, FS(finepoints, *FS_G_coarse)/ev2Hartree, color=colorcycle[0], label=r'$v^{H}_G$')
+ax_oligo.plot(finepoints/angs2bohr, LJ(finepoints, *LJ_G_coarse)/ev2Hartree, color=colorcycle[0], label=r'$v^{H}_G$')
 #ax_oligo.scatter(points[1:]/angs2bohr, vg_coarse[1:]/ev2Hartree, color=colorcycle[3], marker='o')
-ax_oligo.plot(finepoints/angs2bohr, FS(finepoints, *FS_E_coarse)/ev2Hartree, color=colorcycle[1], label=r'$v^{H}_E$')
+ax_oligo.plot(finepoints/angs2bohr, LJ(finepoints, *LJ_E_coarse)/ev2Hartree, color=colorcycle[1], label=r'$v^{H}_E$')
 #ax_oligo.scatter(points[1:]/angs2bohr, ve_coarse[1:]/ev2Hartree, color=colorcycle[4], marker='o')
 ax_oligo.plot(finepoints/angs2bohr, biexp(finepoints, *beta_coef)/ev2Hartree, color=colorcycle[2], label=r'$\beta$')
 #ax_oligo.scatter(points[1:]/angs2bohr, beta[1:]/ev2Hartree, color=colorcycle[5], marker='o')

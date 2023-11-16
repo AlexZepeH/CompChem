@@ -1,8 +1,9 @@
 import my_lib
 import numpy as np
 
-working_path = '/home/alejandro/tutorial/scan_2/'
-di_angles = np.arange(-135.680,-200.680,-5.0)
+working_path = '/home/alejandro/tutorial/scan5/'
+di_angles = np.concatenate((np.arange(-25.0,27.0,2),np.arange(135.0,187.0,2)))
+
 label_list = []
 file_names = []
 for i in range(len(di_angles)):
